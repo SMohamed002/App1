@@ -1,7 +1,9 @@
-from flask import Flask, request, render_template
+from flask import Flask, jsonify, request, render_template
 import os
 import numpy as np
 import tensorflow as tf
+from flask_ngrok import run_with_ngrok
+import json
 
 # Load the pre-trained neural network model
 model = tf.keras.models.load_model('models/Model100.h5')
@@ -9,12 +11,15 @@ model = tf.keras.models.load_model('models/Model100.h5')
 app = Flask(__name__)
 app.static_folder = 'static'
 
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
 # Receiving the image and classifying it
 @app.route('/upload', methods=['POST'])
+
+
 def classify_image():
     if request.method == 'POST':
         # Receiving the image sent from the Flutter application
@@ -41,9 +46,10 @@ def classify_image():
         # Remove the temporary image
         os.remove(img_path)
 
-        # Return the classification result as HTML
-        return render_template('result.html', result=result)
+        # Return the classification result as JSON
+        return jsonify(result)
+
 
 if __name__ == '__main__':
     app.run(debug=True)
-
+    
