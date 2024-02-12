@@ -2,8 +2,8 @@ from flask import Flask, jsonify, request, render_template
 import os
 import numpy as np
 import tensorflow as tf
-from flask_ngrok import run_with_ngrok
-import json
+
+
 
 # Load the pre-trained neural network model
 model = tf.keras.models.load_model('models/Model100.h5')
