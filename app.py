@@ -1,59 +1,62 @@
-from flask import Flask, jsonify, request, render_template
-import os
+#importing all the required libraries
+from flask import Flask,request,jsonify
+import werkzeug
+import json
 import numpy as np
-import tensorflow as tf
+from keras.models import load_model
+import keras.utils as image
+import tensorflow as t
+from keras.applications import InceptionV3
 
-
-
-# Load the pre-trained neural network model
-model = tf.keras.models.load_model('models/Model100.h5')
+from flask_cors import CORS, cross_origin
 
 app = Flask(__name__)
-app.static_folder = 'static'
+CORS(app)
+#name of the trained model 
+MODEL = 'models/Model100.h5'
+#loading the model into API
+model = load_model(MODEL)
 
 
-@app.route('/')
-def index():
-    return render_template('index.html')
 
-# Receiving the image and classifying it
-@app.route('/upload', methods=['POST'])
+#making numpy array of our labels 
+classes= ['ALL','AML','CLL','CML','Healthy']
 
 
-def classify_image():
-    if request.method == 'POST':
-        # Receiving the image sent from the Flutter application
-        img_file = request.files['image']
 
-        # Save the image temporarily on the server
-        img_path = 'temp_image.jpg'
-        img_file.save(img_path)
-
-        # Load and classify the image using the model
-        test_image = tf.keras.preprocessing.image.load_img(img_path, target_size=(224, 224))
-        test_image = tf.keras.preprocessing.image.img_to_array(test_image)
-        test_image = np.expand_dims(test_image, axis=0)
-        test_image = test_image / 255.0
-
-        # Classify the image using the model
-        predictions = model.predict(test_image)
-        predicted_class = np.argmax(predictions)
-
-        # Convert the results into known class names
-        classes = ['ALL', 'AML', 'CLL', 'CML', 'Healthy']
-        result = classes[predicted_class]
-
-        # Remove the temporary image
-        os.remove(img_path)
-
-        # Return the classification result as JSON
+@app.route('/upload',methods=['POST'])
+@cross_origin()
+def upload():
+    if(request.method=="POST"):
+        #taking image from flutter front-end 
+        imagefile=request.files['image']
+        filename=werkzeug.utils.secure_filename(imagefile.filename)
+        #saving image temporarily in "upload" folder 
+        imagefile.save("./upload/"+filename)
+        img="./upload/"+filename
+        #the image is ready to get predicted
+        ans=predict_image(img,model)
+        #returning json object to our flutter front-end
         return jsonify(
             {
-                "result": result
+                "predictions":ans
             }
         )
-
-
-if __name__ == '__main__':
-    app.run(debug=True , threaded=True)
     
+#prediction of image using our trained model and labels text file
+def predict_image(filename, model):
+    img_ = image.load_img(filename, target_size=(224, 224))
+    img_array = image.img_to_array(img_)
+    img_processed = np.expand_dims(img_array, axis=0)
+    img_processed /= 255.
+    
+    prediction = model.predict(img_processed)
+    
+    index = np.argmax(prediction)
+    #printing our prediction at the terminal.
+    print("Prediction - {}".format(str(classes[index]).title()))
+    #returning the prediction answer
+    return str(classes[index])
+
+if __name__ =="__main__":
+    app.run(debug=True,port=5000,threaded=True)
