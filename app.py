@@ -1,6 +1,8 @@
 from flask import Flask, jsonify, request, render_template
+import os
 import numpy as np
 import tensorflow as tf
+
 
 
 # Load the pre-trained neural network model
@@ -45,13 +47,11 @@ def classify_image():
         os.remove(img_path)
 
         # Return the classification result as JSON
-        return result
+        return jsonify(result)
 
 
 if __name__ == '__main__':
     app.run(debug=True)
-    
-
 
 
 
