@@ -1,58 +1,48 @@
-from flask import Flask, jsonify, request, render_template
-import os
-import numpy as np
+from flask import Flask,request
 import tensorflow as tf
+import base64
+import cv2
+import numpy as np
 
 
 
-# Load the pre-trained neural network model
-model = tf.keras.models.load_model('models/Model100.h5')
+new_model = tf.keras.models.load_model("models/Model100.h5")
+
 
 app = Flask(__name__)
-app.static_folder = 'static'
 
 
-@app.route('/')
+
+@app.route('/api',methods = ['Put'] )
 def index():
-    return render_template('index.html')
+       inputchar = request.get_data()
+       imgdata = base64.b64decode(inputchar)
+       filename = 'somthing.jpg'  
+       with open(filename, 'wb') as f:
+        f.write(imgdata)
 
-# Receiving the image and classifying it
-@app.route('/upload', methods=['POST'])
+       img = cv2.imread('somthing.jpg')
+       resize = tf.image.resize(img, (224,224))
+       yhat = new_model.predict(np.expand_dims(resize/255, 0))
 
-
-def classify_image():
-    if request.method == 'POST':
-        # Receiving the image sent from the Flutter application
-        img_file = request.files['image']
-
-        # Save the image temporarily on the server
-        img_path = 'temp_image.jpg'
-        img_file.save(img_path)
-
-        # Load and classify the image using the model
-        test_image = tf.keras.preprocessing.image.load_img(img_path, target_size=(224, 224))
-        test_image = tf.keras.preprocessing.image.img_to_array(test_image)
-        test_image = np.expand_dims(test_image, axis=0)
-        test_image = test_image / 255.0
-
-        # Classify the image using the model
-        predictions = model.predict(test_image)
-        predicted_class = np.argmax(predictions)
+       result = ""
+       predicted_class = np.argmax(yhat)
 
         # Convert the results into known class names
         classes = ['ALL', 'AML', 'CLL', 'CML', 'Healthy']
         result = classes[predicted_class]
 
-        # Remove the temporary image
-        os.remove(img_path)
+        return result
 
         # Return the classification result as JSON
-        return jsonify(
-            result
-        )
-
-
-if __name__ == '__main__':
-    app.run(debug=True)
+       
     
+
+
+      
+
+
+
+if __name__ == "__main__":
+    app.run(debug=True)
 
