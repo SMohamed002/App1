@@ -1,48 +1,59 @@
-from flask import Flask,request
-import tensorflow as tf
-import base64
-import cv2
+from flask import Flask, jsonify, request, render_template
 import numpy as np
+import tensorflow as tf
 
 
-
-new_model = tf.keras.models.load_model("models/Model100.h5")
-
+# Load the pre-trained neural network model
+model = tf.keras.models.load_model('models/Model100.h5')
 
 app = Flask(__name__)
+app.static_folder = 'static'
 
 
-
-@app.route('/api',methods = ['Put'] )
+@app.route('/')
 def index():
-       inputchar = request.get_data()
-       imgdata = base64.b64decode(inputchar)
-       filename = 'somthing.jpg'  
-       with open(filename, 'wb') as f:
-        f.write(imgdata)
+    return render_template('index.html')
 
-       img = cv2.imread('somthing.jpg')
-       resize = tf.image.resize(img, (224,224))
-       yhat = new_model.predict(np.expand_dims(resize/255, 0))
+# Receiving the image and classifying it
+@app.route('/upload', methods=['POST'])
 
-       result = ""
-       predicted_class = np.argmax(yhat)
+
+def classify_image():
+    if request.method == 'POST':
+        # Receiving the image sent from the Flutter application
+        img_file = request.files['image']
+
+        # Save the image temporarily on the server
+        img_path = 'temp_image.jpg'
+        img_file.save(img_path)
+
+        # Load and classify the image using the model
+        test_image = tf.keras.preprocessing.image.load_img(img_path, target_size=(224, 224))
+        test_image = tf.keras.preprocessing.image.img_to_array(test_image)
+        test_image = np.expand_dims(test_image, axis=0)
+        test_image = test_image / 255.0
+
+        # Classify the image using the model
+        predictions = model.predict(test_image)
+        predicted_class = np.argmax(predictions)
 
         # Convert the results into known class names
         classes = ['ALL', 'AML', 'CLL', 'CML', 'Healthy']
         result = classes[predicted_class]
 
-        return result
+        # Remove the temporary image
+        os.remove(img_path)
 
         # Return the classification result as JSON
-       
+        return result
+
+
+if __name__ == '__main__':
+    app.run(debug=True)
     
 
 
-      
 
 
 
-if __name__ == "__main__":
-    app.run(debug=True)
 
