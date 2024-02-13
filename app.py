@@ -47,9 +47,13 @@ def classify_image():
         os.remove(img_path)
 
         # Return the classification result as JSON
-        return jsonify(result)
+        return jsonify(
+            {
+                "result": result
+            }
+        )
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True , threaded=True)
     
