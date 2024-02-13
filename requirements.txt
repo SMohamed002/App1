@@ -3,7 +3,6 @@ tensorflow
 flask
 pillow
 gunicorn
-Werkzeug
 
-keras
-flask_cors
+
+
