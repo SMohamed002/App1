@@ -3,6 +3,6 @@ tensorflow
 flask
 pillow
 gunicorn
-opencv-python
+
 
 
