@@ -3,7 +3,7 @@ tensorflow
 flask
 pillow
 gunicorn
-werkzeug
-JsonToPython
+Werkzeug
+
 keras
 flask_cors
