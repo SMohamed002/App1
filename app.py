@@ -3,14 +3,11 @@ import os
 import numpy as np
 import tensorflow as tf
 
-
-
 # Load the pre-trained neural network model
 model = tf.keras.models.load_model('models/Model100.h5')
 
 app = Flask(__name__)
 app.static_folder = 'static'
-
 
 @app.route('/')
 def index():
@@ -18,8 +15,6 @@ def index():
 
 # Receiving the image and classifying it
 @app.route('/upload', methods=['POST'])
-
-
 def classify_image():
     if request.method == 'POST':
         # Receiving the image sent from the Flutter application
@@ -43,16 +38,18 @@ def classify_image():
         classes = ['ALL', 'AML', 'CLL', 'CML', 'Healthy']
         result = classes[predicted_class]
 
+        # Calculate the confidence as a percentage
+        confidence = np.max(predictions)
+        confidence_percent = int(confidence * 100)
+
         # Remove the temporary image
         os.remove(img_path)
 
-        # Return the classification result as JSON
-        return jsonify(result)
-
+        # Return the classification result and confidence as JSON
+        return jsonify({'result': result, 'confidence': confidence_percent})
 
 if __name__ == '__main__':
     app.run(debug=True)
-
 
 
 
