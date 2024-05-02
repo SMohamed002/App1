@@ -2,6 +2,7 @@ flask
 gunicorn
 numpy
 tensorflow
+pillow
 
 
 
