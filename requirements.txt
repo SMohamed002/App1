@@ -3,6 +3,9 @@ gunicorn
 numpy
 tensorflow
 pillow
+imutils
+scikit-image
+matplotlib
 
 
 
