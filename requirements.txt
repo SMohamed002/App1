@@ -6,6 +6,8 @@ pillow
 imutils
 scikit-image
 matplotlib
+opencv-python
+scikit-learn
 
 
 
