@@ -21,7 +21,7 @@ from sklearn.cluster import KMeans
 import matplotlib.pyplot as plt
 from scipy import ndimage as ndi
 from skimage import morphology
-import time
+
 
 # Load the pre-trained neural network model
 model = tf.keras.models.load_model('models/Model100.h5')
@@ -70,29 +70,45 @@ def classify_image():
         # Apply the mask to the original image
         out = cv2.bitwise_and(img, img, mask=m2)
 
+
+
+        # Prepare the image for the model
+        processed_image = cv2.resize(out, (224, 224))
+        processed_image = np.expand_dims(processed_image, axis=0)
+
+        # Predict using the model
+        prediction = model.predict(processed_image)
+
+        # Convert the prediction to a class label
+        class_labels = {0: "ALL", 1: "AML", 2: "CLL", 3: "CML", 4: "Healthy"}
+        predicted_class = class_labels[np.argmax(prediction)]
+        confidence = prediction[0][np.argmax(prediction)]
+
+
+
         # Draw Anchors and confidence
         contours, _ = cv2.findContours(m2, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         for contour in contours:
             x, y, w, h = cv2.boundingRect(contour)
             font = cv2.FONT_HERSHEY_DUPLEX
-            confidence = random.uniform(0.94, 0.99)  # Random confidence for demonstration
-            text = f"ALL"
+            #confidence = random.uniform(0.94, 0.99)  # Random confidence for demonstration
+            text = f"{predicted_class}"
             (text_width, text_height), _ = cv2.getTextSize(text, font, 0.4, 1)
-            cv2.putText(out, text, (x + int((w - text_width) / 2), y - 5), font, 0.4, (0, 0, 255), 1, cv2.LINE_AA)
+            cv2.putText(img, text, (x + int((w - text_width) / 2), y - 5), font, 0.4, (0, 0, 255), 1, cv2.LINE_AA)
 
             # Draw rectangle
-            cv2.rectangle(out, (x, y), (x+w, y+h), (255, 0, 0), 2)
+            cv2.rectangle(img, (x, y), (x+w, y+h), (255, 0, 0), 2)
 
             # Add confidence percentage under the rectangle
             text_confidence = f"{confidence*100:.2f}%"
             (text_width, text_height), _ = cv2.getTextSize(text_confidence, font, 0.3, 1)
-            cv2.putText(out, text_confidence, (x + int((w - text_width) / 2), y+h+15), font, 0.3, (0, 0, 255), 1, cv2.LINE_AA)
+            cv2.putText(img, text_confidence, (x + int((w - text_width) / 2), y+h+15), font, 0.3, (0, 0, 255), 1, cv2.LINE_AA)
 
         # Remove the temporary image
         os.remove(img_path)
 
         # Convert the processed image to JPG bytes
-        _, img_jpg = cv2.imencode('.jpg', out)
+        _, img_jpg = cv2.imencode('.jpg', img)
         img_jpg_bytes = img_jpg.tobytes()
 
         # Return the processed image as JPG
