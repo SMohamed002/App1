@@ -1,13 +1,13 @@
-gunicorn
-pillow
-imutils
-matplotlib
+gunicorn==22.0.0
+pillow==10.3.0
+imutils==0.5.4
+matplotlib==3.9.0
 opencv-python-headless==4.5.3.56
-scipy
-Flask==2.3.2
-tensorflow==2.12.0
-numpy==1.23.5
-scikit-learn==1.2.2
-scikit-image==0.19.3
-Werkzeug==2.3.2
+scipy==1.13.1
+Flask==3.0.3
+tensorflow==2.16.1
+numpy==2.0.0
+scikit-learn==1.5.0
+scikit-image==0.24.0
+Werkzeug==3.0.3
 
