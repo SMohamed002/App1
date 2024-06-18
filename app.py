@@ -1,119 +1,118 @@
-from flask import Flask, jsonify, request, render_template
-import os
-import numpy as np
+from flask import Flask, request, render_template, jsonify
+from tensorflow.keras.models import load_model
+from tensorflow.keras.preprocessing import image
 import tensorflow as tf
-from flask import request, send_file
-from io import BytesIO
-
-import cv2
-
-from numpy import random
-from matplotlib.image import imread
-
-from imutils import paths
-import os
 import numpy as np
-import random
-
-
+import os
+from werkzeug.utils import secure_filename
 import cv2
 from sklearn.cluster import KMeans
-import matplotlib.pyplot as plt
-from scipy import ndimage as ndi
 from skimage import morphology
-
-
-# Load the pre-trained neural network model
-model = tf.keras.models.load_model('models/Model100.h5')
+from scipy import ndimage as ndi
+import base64
 
 app = Flask(__name__)
-app.static_folder = 'static'
 
+# Load your trained model
+model_path = 'models/Saeed.h5'  # ضع مسار النموذج الخاص بك هنا
+model = load_model(model_path)
+
+# Define your preprocessing function
+def preprocess_image(img_path):
+    img = image.load_img(img_path, target_size=(224, 224))  # تغيير حجم الصورة إلى 224x224
+    img_array = image.img_to_array(img)
+    img_array = np.expand_dims(img_array, axis=0)
+    img_array = tf.keras.applications.mobilenet_v2.preprocess_input(img_array)
+    return img_array
+
+def process_image(img_path, predicted_class_name):
+    # قراءة الصورة
+    img = cv2.imread(img_path)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    img = cv2.resize(img, (224, 224))
+
+    # إذا كان التصنيف "Healthy"، نعيد الصورة الأصلية بدون تعديلات
+    if predicted_class_name == "Healthy":
+        _, buffer = cv2.imencode('.jpg', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+        img_base64 = base64.b64encode(buffer).decode('utf-8')
+        return img_base64
+
+    # تحويل الصورة إلى LAB
+    img_lab = cv2.cvtColor(img, cv2.COLOR_RGB2LAB)
+    l, a, b = cv2.split(img_lab)
+
+    # تطبيق KMeans
+    a_reshaped = a.reshape(a.shape[0] * a.shape[1], 1)
+    kmeans = KMeans(n_clusters=7, random_state=0).fit(a_reshaped)
+    clustered = kmeans.cluster_centers_[kmeans.labels_]
+    clustered_img = clustered.reshape(a.shape[0], a.shape[1])
+    clustered_img = clustered_img.astype(np.uint8)
+
+    # تطبيق Threshold
+    _, thresholded = cv2.threshold(clustered_img, 141, 255, cv2.THRESH_BINARY)
+
+    # ملء الفراغات وإزالة الأجسام الصغيرة
+    filled_holes = ndi.binary_fill_holes(thresholded)
+    cleaned = morphology.remove_small_objects(filled_holes, 200)
+    cleaned = morphology.remove_small_holes(cleaned, 250)
+    cleaned = cleaned.astype(np.uint8)
+
+    # العثور على الكائنات ووضع Bounding Box
+    contours, _ = cv2.findContours(cleaned, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    for contour in contours:
+        x, y, w, h = cv2.boundingRect(contour)
+        cv2.rectangle(img, (x, y), (x+w, y+h), (255, 0, 0), 2)  # رسم Bounding Box باللون الأحمر
+
+    # تحويل الصورة إلى Base64
+    _, buffer = cv2.imencode('.jpg', cv2.cvtColor(img, cv2.COLOR_RGB2BGR))
+    img_base64 = base64.b64encode(buffer).decode('utf-8')
+
+    return img_base64
+
+def predict_image(img_path):
+    img_array = preprocess_image(img_path)
+    predictions = model.predict(img_array)[0]
+
+    # تحويل القيم العددية إلى نصوص
+    class_names = ["Benign", "Early Pre-B", "Healthy", "Pre-B", "Pro-B"]
+    predicted_class = np.argmax(predictions)
+    predicted_class_name = class_names[predicted_class]
+    
+    # دمج الأسماء مع القيم
+    predictions_with_labels = [f"{class_names[i]}: {predictions[i]:.4f}" for i in range(len(predictions))]
+    
+    return predicted_class_name, predictions_with_labels
+
+# Route for home page to upload image
 @app.route('/')
-def index():
+def home():
     return render_template('index.html')
 
-# Receiving the image and classifying it
+# Route to handle image upload and prediction
 @app.route('/upload', methods=['POST'])
-def classify_image():
-    if request.method == 'POST':
-        # Receiving the image sent from the Flutter application
-        img_file = request.files['image']
+def upload_image():
+    if 'image' not in request.files:
+        return 'No file part', 400
+    
+    file = request.files['image']
+    
+    if file.filename == '':
+        return 'No selected file', 400
+    
+    if file:
+        filename = secure_filename(file.filename)
+        file_path = os.path.join('uploads', filename)  # حفظ الملف في مجلد محلي
+        file.save(file_path)
+        
+        predicted_class, predictions = predict_image(file_path)
+        
+        # Process the image
+        processed_img_base64 = process_image(file_path, predicted_class)
+        
+        return jsonify({'predicted_class': predicted_class, 'predictions': predictions, 'processed_image': processed_img_base64})
 
-        # Save the image temporarily on the server
-        img_path = 'temp_image.jpg'
-        img_file.save(img_path)
-
-        # Load the image and perform the preprocessing
-        img = cv2.imread(img_path)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        img = cv2.resize(img, (224, 224))
-
-        # Convert image to LAB color space
-        img_lab = cv2.cvtColor(img, cv2.COLOR_RGB2LAB)
-        l, a, b = cv2.split(img_lab)
-
-        # Apply KMeans clustering on 'a' channel
-        a_img = a.reshape(a.shape[0]*a.shape[1], 1)
-        km = KMeans(n_clusters=7, random_state=0).fit(a_img)
-        p2s = km.cluster_centers_[km.labels_]
-        ic = p2s.reshape(a.shape[0], a.shape[1])
-        ic = ic.astype(np.uint8)
-
-        # Thresholding and morphological operations
-        _, t = cv2.threshold(ic, 157, 255, cv2.THRESH_BINARY)
-        fh = ndi.binary_fill_holes(t)
-        m1 = morphology.remove_small_objects(fh, 200)
-        m2 = morphology.remove_small_holes(m1, 250)
-        m2 = m2.astype(np.uint8)
-
-        # Apply the mask to the original image
-        out = cv2.bitwise_and(img, img, mask=m2)
-
-
-
-        # Prepare the image for the model
-        processed_image = cv2.resize(out, (224, 224))
-        processed_image = np.expand_dims(processed_image, axis=0)
-
-        # Predict using the model
-        prediction = model.predict(processed_image)
-
-        # Convert the prediction to a class label
-        class_labels = {0: "ALL", 1: "AML", 2: "CLL", 3: "CML", 4: "Healthy"}
-        predicted_class = class_labels[np.argmax(prediction)]
-        confidence = prediction[0][np.argmax(prediction)]
-
-
-
-        # Draw Anchors and confidence
-        contours, _ = cv2.findContours(m2, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        for contour in contours:
-            x, y, w, h = cv2.boundingRect(contour)
-            font = cv2.FONT_HERSHEY_DUPLEX
-            #confidence = random.uniform(0.94, 0.99)  # Random confidence for demonstration
-            text = f"{predicted_class}"
-            (text_width, text_height), _ = cv2.getTextSize(text, font, 0.4, 1)
-            cv2.putText(img, text, (x + int((w - text_width) / 2), y - 5), font, 0.4, (0, 0, 255), 1, cv2.LINE_AA)
-
-            # Draw rectangle
-            cv2.rectangle(img, (x, y), (x+w, y+h), (255, 0, 0), 2)
-
-            # Add confidence percentage under the rectangle
-            text_confidence = f"{confidence*100:.2f}%"
-            (text_width, text_height), _ = cv2.getTextSize(text_confidence, font, 0.3, 1)
-            cv2.putText(img, text_confidence, (x + int((w - text_width) / 2), y+h+15), font, 0.3, (0, 0, 255), 1, cv2.LINE_AA)
-
-        # Remove the temporary image
-        os.remove(img_path)
-
-        # Convert the processed image to JPG bytes
-        _, img_jpg = cv2.imencode('.jpg', img)
-        img_jpg_bytes = img_jpg.tobytes()
-
-        # Return the processed image as JPG
-        return send_file(BytesIO(img_jpg_bytes), mimetype='image/jpeg')
 if __name__ == '__main__':
+    os.makedirs('uploads', exist_ok=True)  # إنشاء مجلد لحفظ الملفات المرفوعة
     app.run(debug=True)
 
 
