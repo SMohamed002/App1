@@ -1,14 +1,13 @@
-flask
 gunicorn
-numpy==2.0.0
-tensorflow
 pillow
 imutils
-scikit-image
 matplotlib
 opencv-python-headless==4.5.3.56
-scikit-learn
 scipy
-Werkzeug
-
+Flask==2.3.2
+tensorflow==2.12.0
+numpy==1.23.5
+scikit-learn==1.2.2
+scikit-image==0.19.3
+Werkzeug==2.3.2
 
