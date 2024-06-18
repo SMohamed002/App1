@@ -2,7 +2,6 @@ from flask import Flask, request, render_template, jsonify
 from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
 import tensorflow as tf
-import numpy as np
 import os
 from werkzeug.utils import secure_filename
 import cv2
@@ -21,7 +20,7 @@ model = load_model(model_path)
 def preprocess_image(img_path):
     img = image.load_img(img_path, target_size=(224, 224))  # تغيير حجم الصورة إلى 224x224
     img_array = image.img_to_array(img)
-    img_array = np.expand_dims(img_array, axis=0)
+    img_array = tf.expand_dims(img_array, axis=0)
     img_array = tf.keras.applications.mobilenet_v2.preprocess_input(img_array)
     return img_array
 
@@ -42,23 +41,23 @@ def process_image(img_path, predicted_class_name):
     l, a, b = cv2.split(img_lab)
 
     # تطبيق KMeans
-    a_reshaped = a.reshape(a.shape[0] * a.shape[1], 1)
+    a_reshaped = tf.reshape(a, [a.shape[0] * a.shape[1], 1])
     kmeans = KMeans(n_clusters=7, random_state=0).fit(a_reshaped)
     clustered = kmeans.cluster_centers_[kmeans.labels_]
-    clustered_img = clustered.reshape(a.shape[0], a.shape[1])
-    clustered_img = clustered_img.astype(np.uint8)
+    clustered_img = tf.reshape(clustered, [a.shape[0], a.shape[1]])
+    clustered_img = tf.cast(clustered_img, tf.uint8)
 
     # تطبيق Threshold
-    _, thresholded = cv2.threshold(clustered_img, 141, 255, cv2.THRESH_BINARY)
+    _, thresholded = cv2.threshold(clustered_img.numpy(), 141, 255, cv2.THRESH_BINARY)
 
     # ملء الفراغات وإزالة الأجسام الصغيرة
     filled_holes = ndi.binary_fill_holes(thresholded)
     cleaned = morphology.remove_small_objects(filled_holes, 200)
     cleaned = morphology.remove_small_holes(cleaned, 250)
-    cleaned = cleaned.astype(np.uint8)
+    cleaned = tf.cast(cleaned, tf.uint8)
 
     # العثور على الكائنات ووضع Bounding Box
-    contours, _ = cv2.findContours(cleaned, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(cleaned.numpy(), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     for contour in contours:
         x, y, w, h = cv2.boundingRect(contour)
         cv2.rectangle(img, (x, y), (x+w, y+h), (255, 0, 0), 2)  # رسم Bounding Box باللون الأحمر
@@ -75,7 +74,7 @@ def predict_image(img_path):
 
     # تحويل القيم العددية إلى نصوص
     class_names = ["Benign", "Early Pre-B", "Healthy", "Pre-B", "Pro-B"]
-    predicted_class = np.argmax(predictions)
+    predicted_class = tf.argmax(predictions).numpy()
     predicted_class_name = class_names[predicted_class]
     
     # دمج الأسماء مع القيم
