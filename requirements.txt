@@ -9,5 +9,5 @@ matplotlib
 opencv-python-headless==4.5.3.56
 scikit-learn
 scipy
-
+Werkzeug==2.0.1
 
