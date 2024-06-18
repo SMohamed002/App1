@@ -2,13 +2,45 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Leukemia Image Classifier</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Upload and Prediction</title>
 </head>
 <body>
-    <h1>Leukemia Image Classifier</h1>
-    <form action="/upload" method="post" enctype="multipart/form-data">
-        <input type="file" name="image" accept="image/*">
+    <h1>Upload an Image for Prediction</h1>
+    <form id="upload-form" enctype="multipart/form-data">
+        <input type="file" name="image" id="image" required>
         <button type="submit">Upload</button>
     </form>
+    <div id="result">
+        <h2>Predicted Class: <span id="predicted-class"></span></h2>
+        <h2>Predictions:</h2>
+        <ul id="predictions"></ul>
+        <h2>Processed Image:</h2>
+        <img id="processed-image" src="" alt="Processed Image">
+    </div>
+    <script>
+        document.getElementById('upload-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const formData = new FormData();
+            formData.append('image', document.getElementById('image').files[0]);
+
+            const response = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            const result = await response.json();
+            document.getElementById('predicted-class').innerText = result.predicted_class;
+            const predictionsList = document.getElementById('predictions');
+            predictionsList.innerHTML = '';
+            result.predictions.forEach(prediction => {
+                const li = document.createElement('li');
+                li.innerText = prediction;
+                predictionsList.appendChild(li);
+            });
+            document.getElementById('processed-image').src = 'data:image/jpeg;base64,' + result.processed_image;
+        });
+    </script>
 </body>
 </html>
+
