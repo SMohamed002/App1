@@ -3,42 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Upload and Prediction</title>
+    <title>Image Classification</title>
 </head>
 <body>
-    <h1>Upload an Image for Prediction</h1>
+    <h1>Image Classification</h1>
     <form id="upload-form" enctype="multipart/form-data">
-        <input type="file" name="image" id="image" required>
-        <button type="submit">Upload</button>
+        <input type="file" id="file-input" name="file">
+        <button type="submit">Upload and Classify</button>
     </form>
-    <div id="result">
-        <h2>Predicted Class: <span id="predicted-class"></span></h2>
-        <h2>Predictions:</h2>
-        <ul id="predictions"></ul>
-        <h2>Processed Image:</h2>
-        <img id="processed-image" src="" alt="Processed Image">
-    </div>
+    <div id="result"></div>
+
     <script>
         document.getElementById('upload-form').addEventListener('submit', async function(event) {
             event.preventDefault();
+            const fileInput = document.getElementById('file-input');
             const formData = new FormData();
-            formData.append('image', document.getElementById('image').files[0]);
+            formData.append('file', fileInput.files[0]);
 
-            const response = await fetch('/upload', {
-                method: 'POST',
-                body: formData
-            });
-
-            const result = await response.json();
-            document.getElementById('predicted-class').innerText = result.predicted_class;
-            const predictionsList = document.getElementById('predictions');
-            predictionsList.innerHTML = '';
-            result.predictions.forEach(prediction => {
-                const li = document.createElement('li');
-                li.innerText = prediction;
-                predictionsList.appendChild(li);
-            });
-            document.getElementById('processed-image').src = 'data:image/jpeg;base64,' + result.processed_image;
+            try {
+                const response = await fetch('/predict', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    document.getElementById('result').innerHTML = 
+                        `Class Label: ${result.class_label}, Confidence: ${result.confidence.toFixed(2)}%`;
+                } else {
+                    document.getElementById('result').innerHTML = 
+                        `Error: ${result.error}`;
+                }
+            } catch (error) {
+                document.getElementById('result').innerHTML = 
+                    `Error: ${error.message}`;
+            }
         });
     </script>
 </body>
