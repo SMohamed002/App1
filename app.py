@@ -3,7 +3,6 @@ from tensorflow.keras.models import load_model
 from tensorflow.keras.preprocessing import image
 import tensorflow as tf
 import os
-from werkzeug.utils import secure_filename
 import cv2
 from sklearn.cluster import KMeans
 from skimage import morphology
@@ -99,9 +98,7 @@ def upload_image():
         return 'No selected file', 400
     
     if file:
-        filename = secure_filename(file.filename)
-        file_path = os.path.join('uploads', filename)  # حفظ الملف في مجلد محلي
-        file.save(file_path)
+        
         
         predicted_class, predictions = predict_image(file_path)
         
