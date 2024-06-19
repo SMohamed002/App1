@@ -4,9 +4,9 @@ from tensorflow.keras.preprocessing import image
 import numpy as np
 import tensorflow as tf
 import os
+import io
 
 app = Flask(__name__)
-app.config['UPLOAD_FOLDER'] = './uploads'
 
 # Load the Keras model
 model = tf.keras.models.load_model('models/Saeed.h5')
@@ -14,9 +14,9 @@ model = tf.keras.models.load_model('models/Saeed.h5')
 # Define your class labels
 class_labels = ['Benign', 'Early Pre-B', 'Healthy', 'Pre-B', 'Pro-B']
 
-def predict_image(img_path, model, class_labels):
-    # Load and preprocess the image
-    img = image.load_img(img_path, target_size=(224, 224))
+def predict_image(img, model, class_labels):
+    # Preprocess the image
+    img = img.resize((224, 224))  # Resize the image
     img_array = image.img_to_array(img)
     img_array = np.expand_dims(img_array, axis=0)
     img_array = preprocess_input(img_array)
@@ -47,21 +47,18 @@ def classify():
     if file.filename == '':
         return 'No selected file'
 
-    # Save the uploaded file to the uploads folder
-    if file:
-        filename = file.filename
-        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-        file.save(filepath)
+    # Read image from memory
+    img = image.load_img(io.BytesIO(file.read()), target_size=(224, 224))
 
-        # Get prediction and confidence
-        predicted_class, confidence = predict_image(filepath, model, class_labels)
+    # Get prediction and confidence
+    predicted_class, confidence = predict_image(img, model, class_labels)
 
-        # Return the result
-        result = {
-            'class': predicted_class,
-            'confidence': float(confidence)  # Convert confidence to float for JSON serialization
-        }
-        return jsonify(result)
+    # Return the result
+    result = {
+        'class': predicted_class,
+        'confidence': float(confidence)  # Convert confidence to float for JSON serialization
+    }
+    return jsonify(result)
 
 if __name__ == '__main__':
     app.run(debug=True)
