@@ -1,68 +1,62 @@
-from flask import Flask, render_template, request, jsonify
-from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
-from tensorflow.keras.preprocessing import image
+from flask import Flask, request, render_template, url_for, jsonify
+from tensorflow.keras.models import load_model
+from PIL import Image
 import numpy as np
-import tensorflow as tf
-import os
-import io
 
 app = Flask(__name__)
 
-# Load the Keras model
-model = tf.keras.models.load_model('models/Model100.h5')
+def preprossing(image):
+    image = Image.open(image)
+    image = image.resize((224, 224))
+    image_arr = np.array(image.convert('RGB'))
+    image_arr = image_arr / 255.0  # Normalize the image
+    image_arr = np.expand_dims(image_arr, axis=0)  # Add batch dimension
+    return image_arr
 
-# Define your class labels
-class_labels = ['Benign', 'Early Pre-B', 'Healthy', 'Pre-B', 'Pro-B']
-
-def predict_image(img, model, class_labels):
-    # Preprocess the image
-    img = img.resize((224, 224))  # Resize the image
-    img_array = image.img_to_array(img)
-    img_array = np.expand_dims(img_array, axis=0)
-    img_array = preprocess_input(img_array)
-
-    # Predict
-    predictions = model.predict(img_array)
-    predicted_class_idx = np.argmax(predictions[0])
-    confidence = np.max(predictions[0])  # Get the confidence (probability) of the predicted class
-
-    # Get the predicted class label
-    predicted_class = class_labels[predicted_class_idx]
-
-    return predicted_class, confidence
+classes = ['Buildings', 'Forest', 'Glacier', 'Mountain', 'Sea', 'Street']
+model = load_model("models/NEW.h5")
 
 @app.route('/')
 def index():
-    return render_template('index.html')
+    return render_template('index.html', appName="Intel Image Classification")
 
-@app.route('/classify', methods=['POST'])
-def classify():
-    # Check if the POST request has the file part
-    if 'imageFile' not in request.files:
-        return 'No file part'
+@app.route('/predictApi', methods=["POST"])
+def api():
+    try:
+        if 'fileup' not in request.files:
+            return "Please try again. The Image doesn't exist"
+        image = request.files.get('fileup')
+        image_arr = preprossing(image)
+        print("Model predicting ...")
+        result = model.predict(image_arr)
+        print("Model predicted")
+        ind = np.argmax(result)
+        prediction = classes[ind]
+        print(prediction)
+        return jsonify({'prediction': prediction})
+    except Exception as e:
+        return jsonify({'Error': str(e)})
 
-    file = request.files['imageFile']
-
-    # If the user does not select a file, the browser submits an empty file without a filename
-    if file.filename == '':
-        return 'No selected file'
-
-    # Read image from memory
-    img = image.load_img(io.BytesIO(file.read()), target_size=(224, 224))
-
-    # Get prediction and confidence
-    predicted_class, confidence = predict_image(img, model, class_labels)
-
-    # Return the result
-    result = {
-        'class': predicted_class,
-        'confidence': float(confidence)  # Convert confidence to float for JSON serialization
-    }
-    return jsonify(result)
+@app.route('/predict', methods=['GET', 'POST'])
+def predict():
+    print("run code")
+    if request.method == 'POST':
+        try:
+            print("image loading....")
+            image = request.files['fileup']
+            print("image loaded....")
+            image_arr = preprossing(image)
+            print("predicting ...")
+            result = model.predict(image_arr)
+            print("predicted ...")
+            ind = np.argmax(result)
+            prediction = classes[ind]
+            print(prediction)
+            return render_template('index.html', prediction=prediction, image='static/IMG/', appName="Intel Image Classification")
+        except Exception as e:
+            return render_template('index.html', prediction='Error: ' + str(e), appName="Intel Image Classification")
+    else:
+        return render_template('index.html', appName="Intel Image Classification")
 
 if __name__ == '__main__':
     app.run(debug=True)
-
-
-
-
