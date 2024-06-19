@@ -1,53 +1,71 @@
-from flask import Flask, request, jsonify, send_from_directory
-import tensorflow as tf
+from flask import Flask, render_template, request, jsonify
+from tensorflow.keras.applications.mobilenet_v2 import preprocess_input
 from tensorflow.keras.preprocessing import image
-from tensorflow.keras.preprocessing.image import ImageDataGenerator
 import numpy as np
-import io
-from PIL import Image
+import tensorflow as tf
+import os
 
 app = Flask(__name__)
+app.config['UPLOAD_FOLDER'] = './uploads'
 
-# Load the pre-trained model
+# Load the Keras model
 model = tf.keras.models.load_model('models/Saeed.h5')
 
-# Preprocessing function
-image_gen = ImageDataGenerator(preprocessing_function=tf.keras.applications.mobilenet_v2.preprocess_input)
+# Define your class labels
+class_labels = ['Benign', 'Early Pre-B', 'Healthy', 'Pre-B', 'Pro-B']
 
-def preprocess_image(img):
-    img = img.resize((224, 224))  # Change the size to (224, 224)
+def predict_image(img_path, model, class_labels):
+    # Load and preprocess the image
+    img = image.load_img(img_path, target_size=(224, 224))
     img_array = image.img_to_array(img)
     img_array = np.expand_dims(img_array, axis=0)
-    img_array = image_gen.standardize(img_array)
-    return img_array
+    img_array = preprocess_input(img_array)
 
-@app.route('/predict', methods=['POST'])
-def predict():
-    if 'file' not in request.files:
-        return jsonify({"error": "No file part in the request"}), 400
-    
-    file = request.files['file']
-    
-    if file.filename == '':
-        return jsonify({"error": "No file selected for uploading"}), 400
-    
-    try:
-        img = Image.open(io.BytesIO(file.read()))
-        img_preprocessed = preprocess_image(img)
-        prediction = model.predict(img_preprocessed)
-        confidence = np.max(prediction) * 100  # Get the highest confidence
-        class_label = np.argmax(prediction, axis=1)[0]  # Get the predicted class label
+    # Predict
+    predictions = model.predict(img_array)
+    predicted_class_idx = np.argmax(predictions[0])
+    confidence = np.max(predictions[0])  # Get the confidence (probability) of the predicted class
 
-        return jsonify({"class_label": int(class_label), "confidence": float(confidence)}), 200
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
+    # Get the predicted class label
+    predicted_class = class_labels[predicted_class_idx]
+
+    return predicted_class, confidence
 
 @app.route('/')
 def index():
-    return send_from_directory('', 'templates/index.html')
+    return render_template('index.html')
+
+@app.route('/classify', methods=['POST'])
+def classify():
+    # Check if the POST request has the file part
+    if 'imageFile' not in request.files:
+        return 'No file part'
+
+    file = request.files['imageFile']
+
+    # If the user does not select a file, the browser submits an empty file without a filename
+    if file.filename == '':
+        return 'No selected file'
+
+    # Save the uploaded file to the uploads folder
+    if file:
+        filename = file.filename
+        filepath = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+        file.save(filepath)
+
+        # Get prediction and confidence
+        predicted_class, confidence = predict_image(filepath, model, class_labels)
+
+        # Return the result
+        result = {
+            'class': predicted_class,
+            'confidence': float(confidence)  # Convert confidence to float for JSON serialization
+        }
+        return jsonify(result)
 
 if __name__ == '__main__':
     app.run(debug=True)
+
 
 
 
