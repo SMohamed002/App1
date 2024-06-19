@@ -3,11 +3,8 @@ gunicorn == 22.0.0
 pillow
 imutils
 matplotlib
-opencv-python-headless == 4.10.0.84
-scipy
 Flask == 3.0.3
 tensorflow == 2.16.1
 scikit-learn
-scikit-image == 0.24.0
-Werkzeug
+
 
