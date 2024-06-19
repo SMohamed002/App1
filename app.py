@@ -111,7 +111,6 @@ def upload_image():
         return jsonify({'predicted_class': predicted_class, 'predictions': predictions, 'processed_image': processed_img_base64})
 
 if __name__ == '__main__':
-    os.makedirs('uploads', exist_ok=True)  # إنشاء مجلد لحفظ الملفات المرفوعة
     app.run(debug=True)
 
 
