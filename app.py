@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 import tensorflow as tf
 from tensorflow.keras.preprocessing import image
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
@@ -42,9 +42,12 @@ def predict():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/')
+def index():
+    return send_from_directory('', 'templates/index.html')
+
 if __name__ == '__main__':
     app.run(debug=True)
-
 
 
 
