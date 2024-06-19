@@ -1,10 +1,10 @@
 numpy
-gunicorn == 22.0.0
+gunicorn
 pillow
 imutils
 matplotlib
-Flask == 3.0.3
-tensorflow == 2.16.1
-scikit-learn
+Flask
+tensorflow
+
 
 
